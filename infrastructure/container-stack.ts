@@ -16,12 +16,10 @@ export class ContainerStack extends cdk.Stack {
         super(scope, id, props);
 
         const inputBucket = new s3.Bucket(this, 'input-bucket-container-step-function-example', {
-            encryption: s3.BucketEncryption.S3_MANAGED,
             blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
         });
 
         const outputBucket = new s3.Bucket(this, 'output-bucket-container-step-function-example', {
-            encryption: s3.BucketEncryption.S3_MANAGED,
             blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
         });
 
