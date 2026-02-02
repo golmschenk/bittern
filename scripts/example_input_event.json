@@ -1,0 +1,7 @@
+[
+  {
+    "Source": "com.olmschenk.bittern",
+    "DetailType": "input_event",
+    "Detail": "{ \"input_file\": \"example0.csv\" }"
+  }
+]

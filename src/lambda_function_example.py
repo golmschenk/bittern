@@ -4,8 +4,8 @@ from pathlib import Path
 
 import boto3
 
-s3 = boto3.client("s3")
-OUTPUT_BUCKET = os.environ["OUTPUT_BUCKET"]
+s3 = boto3.client('s3')
+OUTPUT_BUCKET = os.environ['OUTPUT_BUCKET']
 
 
 def sum_values_in_file(event, context):
