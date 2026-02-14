@@ -8,6 +8,7 @@ import * as s3n from 'aws-cdk-lib/aws-s3-notifications';
 export class LambdaFunctionStack extends cdk.Stack {
     constructor(scope: Construct, id: string, props?: cdk.StackProps) {
         super(scope, id, props);
+
         const inputBucket = new s3.Bucket(this, 'input-bucket')
         const outputBucket = new s3.Bucket(this, 'output-bucket')
 
