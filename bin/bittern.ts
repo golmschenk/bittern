@@ -2,7 +2,8 @@
 import * as cdk from 'aws-cdk-lib/core';
 import {LambdaFunctionStack} from '../infrastructure/lambda-function-stack';
 import {ContainerStack} from "../infrastructure/container-stack";
-import {DatasetHostingStack} from "../infrastructure/dataset-hosting-stack";
+import {DataHostingStack} from "../infrastructure/data-hosting-stack";
+import {getUsernamesAndSshKeysRecord} from "../infrastructure/ssh-users";
 
 const app = new cdk.App();
 
@@ -14,9 +15,9 @@ new ContainerStack(app, 'container-stack', {
     env: {account: process.env.CDK_DEFAULT_ACCOUNT, region: process.env.CDK_DEFAULT_REGION},
 });
 
-new DatasetHostingStack(app, 'variable-star-dataset-hosting-stack', {
+new DataHostingStack(app, 'variable-star-dataset-data-hosting-stack', {
     env: {account: process.env.CDK_DEFAULT_ACCOUNT, region: process.env.CDK_DEFAULT_REGION},
-    datasetName: 'variable-star',
-    usernamesWithWritePermission: ['arn:aws:iam::376129880223:role/AWSReservedSSO_Project-Power-User_17786188e6b46bb8'],
+    dataName: 'variable-star-dataset',
+    tags: {'working-group': '6', 'deployment-environment': 'production'},
+    usernameAndSshKeyRecord: getUsernamesAndSshKeysRecord(['golmschenk'])
 });
-
