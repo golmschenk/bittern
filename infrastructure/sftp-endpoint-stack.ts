@@ -1,6 +1,7 @@
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as transfer from 'aws-cdk-lib/aws-transfer';
+import * as cdk from 'aws-cdk-lib';
 import {Construct} from 'constructs';
 import {BitternBaseStack, BitternBaseStackProps} from './bittern-base-stack';
 
@@ -31,6 +32,10 @@ export class SftpEndpointStack extends BitternBaseStack {
             protocols: [`SFTP`],
             endpointType: `PUBLIC`,
         });
+
+        const customDomain = 'olmschenk.com';
+        const customSubdomain = 'sftp.';
+        cdk.Tags.of(server).add('transfer:customHostname', customSubdomain + customDomain);
 
         for (const [username, sshKey] of Object.entries(props.usernameAndSshKeyRecord))
             new transfer.CfnUser(this, `sftp-endpoint-user-${username}`, {
