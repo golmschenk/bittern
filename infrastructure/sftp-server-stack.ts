@@ -7,12 +7,12 @@ import {Construct} from 'constructs';
 import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
 import {BitternBaseStack, BitternBaseStackProps} from './bittern-base-stack';
 
-interface SftpGoStackProps extends BitternBaseStackProps {
+interface SftpServerStackProps extends BitternBaseStackProps {
     buckets: [s3.Bucket];
 }
 
-export class SftpGoStackStack extends BitternBaseStack {
-    constructor(scope: Construct, id: string, props: SftpGoStackProps) {
+export class SftpServerStack extends BitternBaseStack {
+    constructor(scope: Construct, id: string, props: SftpServerStackProps) {
         super(scope, id, props);
 
         const vpc = new ec2.Vpc(this, 'sftp-server-stack-vpc', {

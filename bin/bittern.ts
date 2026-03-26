@@ -3,8 +3,7 @@ import * as cdk from 'aws-cdk-lib/core';
 import {LambdaFunctionStack} from '../infrastructure/lambda-function-stack';
 import {ContainerStack} from "../infrastructure/container-stack";
 import {DataHostingStack} from "../infrastructure/data-hosting-stack";
-import {getUsernamesAndSshKeysRecord} from "../infrastructure/ssh-users";
-import {SftpEndpointStack} from "../infrastructure/sftp-endpoint-stack";
+import {SftpServerStack} from "../infrastructure/sftp-server-stack";
 
 const app = new cdk.App();
 
@@ -22,9 +21,8 @@ const variableStarDatasetDataHostingStack = new DataHostingStack(app, 'variable-
     tags: {'working-group': '6', 'deployment-environment': 'production'}
 });
 
-new SftpEndpointStack(app, 'sftp-endpoint-stack', {
+new SftpServerStack(app, 'sftp-server-stack', {
     env: {account: process.env.CDK_DEFAULT_ACCOUNT, region: process.env.CDK_DEFAULT_REGION},
     buckets: [variableStarDatasetDataHostingStack.bucket],
-    usernameAndSshKeyRecord: getUsernamesAndSshKeysRecord(['golmschenk']),
-    tags: {'working-group': '6', 'deployment-environment': 'production'},
+    tags: {'working-group': '14', 'deployment-environment': 'production'},
 });
