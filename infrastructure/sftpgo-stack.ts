@@ -1,4 +1,3 @@
-import * as cdk from 'aws-cdk-lib';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as ecs from 'aws-cdk-lib/aws-ecs';
 import * as elbv2 from 'aws-cdk-lib/aws-elasticloadbalancingv2';
@@ -47,7 +46,7 @@ export class SftpGoStackStack extends BitternBaseStack {
             }),
             defaultDatabaseName: databaseName,
             credentials: rds.Credentials.fromGeneratedSecret('sftpgo', {
-                secretName: 'sftpgo/db-credentials',
+                secretName: 'sftp-server/database-credentials',
             }),
             serverlessV2MinCapacity: 0.5,
             serverlessV2MaxCapacity: 4,
@@ -74,20 +73,18 @@ export class SftpGoStackStack extends BitternBaseStack {
             bucket.grantReadWrite(taskDefinition.taskRole);
         }
 
-        const adminSecret = new secretsmanager.Secret(this, 'SftpGoAdminSecret', {
-            secretName: 'sftpgo/admin-credentials',
+        const sftpgoDefaultAdminSecret = new secretsmanager.Secret(this, 'SftpGoAdminSecret', {
+            secretName: 'sftp-server/administrator-credentials',
             generateSecretString: {
-                secretStringTemplate: JSON.stringify({ username: 'admin' }),
+                secretStringTemplate: JSON.stringify({username: 'administrator'}),
                 generateStringKey: 'password',
                 excludePunctuation: true,
-                passwordLength: 24,
             },
         });
-        adminSecret.grantRead(taskDefinition.taskRole);
+        sftpgoDefaultAdminSecret.grantRead(taskDefinition.taskRole);
 
         databaseCluster.secret!.grantRead(taskDefinition.taskRole);
 
-        // TODO: continuing from here.
         const container = taskDefinition.addContainer('sftp-server-stack-fargate-task', {
             image: ecs.ContainerImage.fromRegistry('drakkan/sftpgo:v2.7-alpine'),
             environment: {
@@ -98,12 +95,17 @@ export class SftpGoStackStack extends BitternBaseStack {
                 SFTPGO_DATA_PROVIDER__CREATE_DEFAULT_ADMIN: 'true',
             },
             secrets: {
-                // Inject DB username + password from the generated secret
                 SFTPGO_DATA_PROVIDER__USERNAME: ecs.Secret.fromSecretsManager(
                     databaseCluster.secret!, 'username',
                 ),
                 SFTPGO_DATA_PROVIDER__PASSWORD: ecs.Secret.fromSecretsManager(
                     databaseCluster.secret!, 'password',
+                ),
+                SFTPGO_DEFAULT_ADMIN_USERNAME: ecs.Secret.fromSecretsManager(
+                    sftpgoDefaultAdminSecret, 'username',
+                ),
+                SFTPGO_DEFAULT_ADMIN_PASSWORD: ecs.Secret.fromSecretsManager(
+                    sftpgoDefaultAdminSecret, 'password',
                 ),
             },
         });
@@ -113,63 +115,50 @@ export class SftpGoStackStack extends BitternBaseStack {
             {containerPort: 8080, protocol: ecs.Protocol.TCP},
         );
 
-        // -------------------------------------------------------
-        // Security Groups
-        // -------------------------------------------------------
-        const serviceSg = new ec2.SecurityGroup(this, 'ServiceSg', {
-            vpc,
-            description: 'SFTPGo Fargate service',
-        });
+        const securityGroup = new ec2.SecurityGroup(
+            this, 'sftp-server-stack-security-group', {
+                vpc,
+            });
 
-        // Allow Fargate → Aurora
         databaseSecurityGroup.addIngressRule(
-            serviceSg,
+            securityGroup,
             ec2.Port.tcp(databaseCluster.clusterEndpoint.port),
-            'Allow Fargate tasks to reach Aurora',
+            'sftp-server-stack-fargate-to-database-rule',
         );
 
-        // -------------------------------------------------------
-        // Fargate Service
-        // -------------------------------------------------------
-        const service = new ecs.FargateService(this, 'SftpGoService', {
+        const fargateService = new ecs.FargateService(this, 'sftp-server-stack-fargate-service', {
             cluster,
             taskDefinition,
             desiredCount: 1,
-            assignPublicIp: true,                       // runs in public subnet
+            assignPublicIp: true,
             vpcSubnets: {subnetType: ec2.SubnetType.PUBLIC},
-            securityGroups: [serviceSg],
+            securityGroups: [securityGroup],
         });
 
-        // -------------------------------------------------------
-        // Network Load Balancer with Elastic IPs (stable public IP)
-        // -------------------------------------------------------
-        const eip1 = new ec2.CfnEIP(this, 'SftpGoEip1');
-        const eip2 = new ec2.CfnEIP(this, 'SftpGoEip2');
+        const elasticIp = new ec2.CfnEIP(this, 'sftp-server-stack-elastic-ip');
 
-        const nlb = new elbv2.NetworkLoadBalancer(this, 'SftpGoNlb', {
+        const networkLoadBalancer = new elbv2.NetworkLoadBalancer(this, 'sftp-server-stack-network-load-balancer', {
             vpc,
             internetFacing: true,
-            crossZoneEnabled: true,
         });
 
-        // Associate Elastic IPs with the NLB subnets
         const publicSubnets = vpc.selectSubnets({subnetType: ec2.SubnetType.PUBLIC}).subnets;
-        const cfnNlb = nlb.node.defaultChild as elbv2.CfnLoadBalancer;
+        const cfnNlb = networkLoadBalancer.node.defaultChild as elbv2.CfnLoadBalancer;
         cfnNlb.addPropertyDeletionOverride('Subnets');
-        cfnNlb.subnetMappings = publicSubnets.map((subnet, index) => ({
+        cfnNlb.subnetMappings = publicSubnets.map((subnet) => ({
             subnetId: subnet.subnetId,
-            allocationId: index === 0 ? eip1.attrAllocationId : eip2.attrAllocationId,
+            allocationId: elasticIp.attrAllocationId,
         }));
 
-        // SFTP listener (port 2022)
-        const sftpListener = nlb.addListener('SftpListener', {
+        const networkLoadBalancerListener = networkLoadBalancer.addListener(
+            'sftp-server-stack-network-load-balancer-listener', {
+                port: 2022,
+                protocol: elbv2.Protocol.TCP,
+            });
+        networkLoadBalancerListener.addTargets('SftpTarget', {
             port: 2022,
             protocol: elbv2.Protocol.TCP,
-        });
-        sftpListener.addTargets('SftpTarget', {
-            port: 2022,
-            protocol: elbv2.Protocol.TCP,
-            targets: [service],
+            targets: [fargateService],
             healthCheck: {
                 port: '8080',
                 protocol: elbv2.Protocol.HTTP,
@@ -177,15 +166,14 @@ export class SftpGoStackStack extends BitternBaseStack {
             },
         });
 
-        // Web UI / API listener (port 8080)
-        const httpListener = nlb.addListener('HttpListener', {
+        const httpListener = networkLoadBalancer.addListener('HttpListener', {
             port: 8080,
             protocol: elbv2.Protocol.TCP,
         });
         httpListener.addTargets('HttpTarget', {
             port: 8080,
             protocol: elbv2.Protocol.TCP,
-            targets: [service],
+            targets: [fargateService],
             healthCheck: {
                 port: '8080',
                 protocol: elbv2.Protocol.HTTP,
@@ -193,32 +181,15 @@ export class SftpGoStackStack extends BitternBaseStack {
             },
         });
 
-        // Allow NLB health checks + traffic into the service
-        serviceSg.addIngressRule(
+        securityGroup.addIngressRule(
             ec2.Peer.anyIpv4(),
             ec2.Port.tcp(2022),
-            'Allow SFTP traffic from NLB',
+            'sftp-server-stack-inbound-sftp-traffic-rule',
         );
-        serviceSg.addIngressRule(
+        securityGroup.addIngressRule(
             ec2.Peer.anyIpv4(),
             ec2.Port.tcp(8080),
-            'Allow HTTP traffic from NLB',
+            'sftp-server-stack-inbound-http-traffic-rule',
         );
-
-        // -------------------------------------------------------
-        // Outputs
-        // -------------------------------------------------------
-        new cdk.CfnOutput(this, 'NlbDnsName', {
-            value: nlb.loadBalancerDnsName,
-            description: 'NLB DNS name for SFTPGo',
-        });
-        new cdk.CfnOutput(this, 'ElasticIp1', {
-            value: eip1.ref,
-            description: 'Elastic IP 1 for SFTP connections',
-        });
-        new cdk.CfnOutput(this, 'ElasticIp2', {
-            value: eip2.ref,
-            description: 'Elastic IP 2 for SFTP connections',
-        });
     }
 }
