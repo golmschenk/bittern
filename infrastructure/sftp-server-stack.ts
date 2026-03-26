@@ -16,7 +16,7 @@ export class SftpServerStack extends BitternBaseStack {
         super(scope, id, props);
 
         const vpc = new ec2.Vpc(this, 'sftp-server-stack-vpc', {
-            maxAzs: 1,
+            maxAzs: 2,
             natGateways: 0,
             subnetConfiguration: [
                 {
@@ -36,10 +36,9 @@ export class SftpServerStack extends BitternBaseStack {
 
         const databaseSecurityGroup = new ec2.SecurityGroup(this, 'sftp-server-stack-database-security-group', {
             vpc,
-            description: 'Security group for Aurora Serverless PostgreSQL',
         });
 
-        const databaseName = 'sftp_server_database';
+        const databaseName = 'sftp_server';
         const databaseCluster = new rds.DatabaseCluster(this, 'sftp-server-stack-database', {
             engine: rds.DatabaseClusterEngine.auroraPostgres({
                 version: rds.AuroraPostgresEngineVersion.VER_16_4,
@@ -115,13 +114,13 @@ export class SftpServerStack extends BitternBaseStack {
             {containerPort: 8080, protocol: ecs.Protocol.TCP},
         );
 
-        const securityGroup = new ec2.SecurityGroup(
+        const fargateSecurityGroup = new ec2.SecurityGroup(
             this, 'sftp-server-stack-security-group', {
                 vpc,
             });
 
         databaseSecurityGroup.addIngressRule(
-            securityGroup,
+            fargateSecurityGroup,
             ec2.Port.tcp(databaseCluster.clusterEndpoint.port),
             'sftp-server-stack-fargate-to-database-rule',
         );
@@ -130,32 +129,36 @@ export class SftpServerStack extends BitternBaseStack {
             cluster,
             taskDefinition,
             desiredCount: 1,
+            minHealthyPercent: 100,
             assignPublicIp: true,
             vpcSubnets: {subnetType: ec2.SubnetType.PUBLIC},
-            securityGroups: [securityGroup],
+            securityGroups: [fargateSecurityGroup],
         });
 
-        const elasticIp = new ec2.CfnEIP(this, 'sftp-server-stack-elastic-ip');
+        const elasticIp0 = new ec2.CfnEIP(this, 'sftp-server-stack-elastic-ip0');
+        const elasticIp1 = new ec2.CfnEIP(this, 'sftp-server-stack-elastic-ip1');
 
         const networkLoadBalancer = new elbv2.NetworkLoadBalancer(this, 'sftp-server-stack-network-load-balancer', {
             vpc,
             internetFacing: true,
+            crossZoneEnabled: true,
         });
 
         const publicSubnets = vpc.selectSubnets({subnetType: ec2.SubnetType.PUBLIC}).subnets;
+        const elasticIps = [elasticIp0, elasticIp1];
         const cfnNlb = networkLoadBalancer.node.defaultChild as elbv2.CfnLoadBalancer;
         cfnNlb.addPropertyDeletionOverride('Subnets');
-        cfnNlb.subnetMappings = publicSubnets.map((subnet) => ({
+        cfnNlb.subnetMappings = publicSubnets.map((subnet, index) => ({
             subnetId: subnet.subnetId,
-            allocationId: elasticIp.attrAllocationId,
+            allocationId: elasticIps[index].attrAllocationId,
         }));
 
         const networkLoadBalancerListener = networkLoadBalancer.addListener(
-            'sftp-server-stack-network-load-balancer-listener', {
+            'sftp-server-stack-network-load-balancer-sftp-listener', {
                 port: 2022,
                 protocol: elbv2.Protocol.TCP,
             });
-        networkLoadBalancerListener.addTargets('SftpTarget', {
+        networkLoadBalancerListener.addTargets('sftp-server-stack-network-load-balancer-sftp-target', {
             port: 2022,
             protocol: elbv2.Protocol.TCP,
             targets: [fargateService],
@@ -166,11 +169,12 @@ export class SftpServerStack extends BitternBaseStack {
             },
         });
 
-        const httpListener = networkLoadBalancer.addListener('HttpListener', {
+        const httpListener = networkLoadBalancer.addListener(
+            'sftp-server-stack-network-load-balancer-http-listener', {
             port: 8080,
             protocol: elbv2.Protocol.TCP,
         });
-        httpListener.addTargets('HttpTarget', {
+        httpListener.addTargets('sftp-server-stack-network-load-balancer-http-target', {
             port: 8080,
             protocol: elbv2.Protocol.TCP,
             targets: [fargateService],
@@ -181,12 +185,12 @@ export class SftpServerStack extends BitternBaseStack {
             },
         });
 
-        securityGroup.addIngressRule(
+        fargateSecurityGroup.addIngressRule(
             ec2.Peer.anyIpv4(),
             ec2.Port.tcp(2022),
             'sftp-server-stack-inbound-sftp-traffic-rule',
         );
-        securityGroup.addIngressRule(
+        fargateSecurityGroup.addIngressRule(
             ec2.Peer.anyIpv4(),
             ec2.Port.tcp(8080),
             'sftp-server-stack-inbound-http-traffic-rule',
