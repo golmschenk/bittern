@@ -4,6 +4,7 @@ import * as ecs from 'aws-cdk-lib/aws-ecs';
 import * as elb from 'aws-cdk-lib/aws-elasticloadbalancingv2';
 import * as rds from 'aws-cdk-lib/aws-rds';
 import * as s3 from 'aws-cdk-lib/aws-s3';
+import * as changeCase from 'change-case';
 import {Construct} from 'constructs';
 import {BitternBaseStack, BitternBaseStackProps} from './bittern-base-stack';
 import {userToPublicSshKeyRecord} from './ssh-users';
@@ -93,12 +94,12 @@ export class SftpServerStack extends BitternBaseStack {
                 home_dir: `/tmp/users/${username}`,
                 permissions: Object.fromEntries([
                     ['/', ['list']],
-                    ...buckets.map((bucket) => [`/${bucket.bucketName}`, ['*']]),
+                    ...buckets.map((bucket) => [`/${changeCase.snakeCase(bucket.bucketName)}`, ['*']]),
                 ]),
                 public_keys: [userToPublicSshKeyRecord[username]],
                 virtual_folders: buckets.map((bucket) => ({
                     name: bucket.bucketName,
-                    virtual_path: `/${bucket.bucketName}`,
+                    virtual_path: `/${changeCase.snakeCase(bucket.bucketName)}`,
                 })),
             })),
         };
@@ -140,7 +141,7 @@ export class SftpServerStack extends BitternBaseStack {
         databaseSecurityGroup.addIngressRule(
             fargateSecurityGroup,
             ec2.Port.tcp(databaseCluster.clusterEndpoint.port),
-            'sftp-server-stack-fargate-to-database-rule',
+            'SftpServerStackFargateToDatabaseRule',
         );
 
         const fargateService = new ecs.FargateService(this, 'SftpServerStackFargateService', {
@@ -189,7 +190,7 @@ export class SftpServerStack extends BitternBaseStack {
         fargateSecurityGroup.addIngressRule(
             ec2.Peer.anyIpv4(),
             ec2.Port.tcp(2022),
-            'sftp-server-stack-inbound-sftp-traffic-rule',
+            'SftpServerStackInboundSftpTrafficRule',
         );
     }
 }
