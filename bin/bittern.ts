@@ -4,7 +4,6 @@ import {LambdaFunctionStack} from '../infrastructure/lambda-function-stack';
 import {ContainerStack} from "../infrastructure/container-stack";
 import {DataHostingStack} from "../infrastructure/data-hosting-stack";
 import {SftpServerStack} from "../infrastructure/sftp-server-stack";
-import {getUsernamesAndSshKeysRecord} from "../infrastructure/ssh-users";
 
 const app = new cdk.App();
 
@@ -24,7 +23,8 @@ const variableStarDatasetDataHostingStack = new DataHostingStack(app, 'variable-
 
 new SftpServerStack(app, 'sftp-server-stack', {
     env: {account: process.env.CDK_DEFAULT_ACCOUNT, region: process.env.CDK_DEFAULT_REGION},
-    buckets: [variableStarDatasetDataHostingStack.bucket],
-    usernameAndSshKeyRecord: getUsernamesAndSshKeysRecord(['golmschenk']),
+    userBucketAccessMapping: [
+        {username: 'golmschenk', buckets: [variableStarDatasetDataHostingStack.bucket]},
+    ],
     tags: {'working-group': '14', 'deployment-environment': 'production'},
 });

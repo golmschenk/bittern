@@ -7,11 +7,10 @@ import * as s3 from 'aws-cdk-lib/aws-s3';
 import {Construct} from 'constructs';
 import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
 import {BitternBaseStack, BitternBaseStackProps} from './bittern-base-stack';
-import {getUsernamesAndSshKeysRecord} from "./ssh-users";
+import {allUsers} from './ssh-users';
 
 interface SftpServerStackProps extends BitternBaseStackProps {
-    buckets: [s3.Bucket];
-    usernameAndSshKeyRecord: Record<string, string>;
+    userBucketAccessMapping: {username: string; buckets: s3.Bucket[]}[];
 }
 
 export class SftpServerStack extends BitternBaseStack {
@@ -70,13 +69,16 @@ export class SftpServerStack extends BitternBaseStack {
             },
         );
 
-        for (const bucket of props.buckets) {
+        const allBuckets = [...new Set(props.userBucketAccessMapping.flatMap(
+            (userBucketAccess) => userBucketAccess.buckets))];
+
+        for (const bucket of allBuckets) {
             bucket.grantReadWrite(taskDefinition.taskRole);
         }
 
         const sftpgoLoadDataJson = {
             version: 15,
-            folders: props.buckets.map((bucket) => ({
+            folders: allBuckets.map((bucket) => ({
                 name: bucket.bucketName,
                 filesystem: {
                     provider: 1,
@@ -86,29 +88,19 @@ export class SftpServerStack extends BitternBaseStack {
                     },
                 },
             })),
-            groups: [
-                {
-                    name: 'main',
-                    user_settings: {
-                        home_dir: '/tmp/users',
-                        permissions: Object.fromEntries([
-                            ['/', ['list']],
-                            ...props.buckets.map((bucket) => [`/${bucket.bucketName}`, ['*']]),
-                        ]),
-                    },
-                    virtual_folders: props.buckets.map((bucket) => ({
-                        name: bucket.bucketName,
-                        virtual_path: `/${bucket.bucketName}`,
-                    })),
-                },
-            ],
-            users: Object.entries(props.usernameAndSshKeyRecord).map(([username, sshKey]) => ({
+            users: props.userBucketAccessMapping.map(({username, buckets}) => ({
                 username,
                 status: 1,
                 home_dir: `/tmp/users/${username}`,
-                permissions: {'/': ['list']},
-                public_keys: [sshKey],
-                groups: [{name: 'main', type: 1}],
+                permissions: Object.fromEntries([
+                    ['/', ['list']],
+                    ...buckets.map((bucket) => [`/${bucket.bucketName}`, ['*']]),
+                ]),
+                public_keys: [allUsers[username]],
+                virtual_folders: buckets.map((bucket) => ({
+                    name: bucket.bucketName,
+                    virtual_path: `/${bucket.bucketName}`,
+                })),
             })),
         };
 
