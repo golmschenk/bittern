@@ -1,3 +1,4 @@
+import * as cdk from 'aws-cdk-lib';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as ecs from 'aws-cdk-lib/aws-ecs';
 import * as elbv2 from 'aws-cdk-lib/aws-elasticloadbalancingv2';
@@ -6,9 +7,11 @@ import * as s3 from 'aws-cdk-lib/aws-s3';
 import {Construct} from 'constructs';
 import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
 import {BitternBaseStack, BitternBaseStackProps} from './bittern-base-stack';
+import {getUsernamesAndSshKeysRecord} from "./ssh-users";
 
 interface SftpServerStackProps extends BitternBaseStackProps {
     buckets: [s3.Bucket];
+    usernameAndSshKeyRecord: Record<string, string>;
 }
 
 export class SftpServerStack extends BitternBaseStack {
@@ -55,7 +58,6 @@ export class SftpServerStack extends BitternBaseStack {
             securityGroups: [databaseSecurityGroup],
         });
 
-
         const cluster = new ecs.Cluster(this, 'sftp-server-stack-fargate-cluster', {vpc});
 
         const taskDefinition = new ecs.FargateTaskDefinition(this, 'sftp-server-stack-fargate-task-definition',
@@ -72,6 +74,44 @@ export class SftpServerStack extends BitternBaseStack {
             bucket.grantReadWrite(taskDefinition.taskRole);
         }
 
+        const sftpgoLoadDataJson = {
+            version: 15,
+            folders: props.buckets.map((bucket) => ({
+                name: bucket.bucketName,
+                filesystem: {
+                    provider: 1,
+                    s3config: {
+                        bucket: bucket.bucketName,
+                        region: cdk.Stack.of(bucket).region,
+                    },
+                },
+            })),
+            groups: [
+                {
+                    name: 'main',
+                    user_settings: {
+                        home_dir: '/tmp/users',
+                        permissions: Object.fromEntries([
+                            ['/', ['list']],
+                            ...props.buckets.map((bucket) => [`/${bucket.bucketName}`, ['*']]),
+                        ]),
+                    },
+                    virtual_folders: props.buckets.map((bucket) => ({
+                        name: bucket.bucketName,
+                        virtual_path: `/${bucket.bucketName}`,
+                    })),
+                },
+            ],
+            users: Object.entries(props.usernameAndSshKeyRecord).map(([username, sshKey]) => ({
+                username,
+                status: 1,
+                home_dir: `/tmp/users/${username}`,
+                permissions: {'/': ['list']},
+                public_keys: [sshKey],
+                groups: [{name: 'main', type: 1}],
+            })),
+        };
+
         const sftpgoDefaultAdminSecret = new secretsmanager.Secret(this, 'SftpGoAdminSecret', {
             secretName: 'sftp-server/administrator-credentials',
             generateSecretString: {
@@ -86,12 +126,18 @@ export class SftpServerStack extends BitternBaseStack {
 
         const container = taskDefinition.addContainer('sftp-server-stack-fargate-task', {
             image: ecs.ContainerImage.fromRegistry('drakkan/sftpgo:v2.7-alpine'),
+            command: [
+                'sh', '-c',
+                `echo '${JSON.stringify(sftpgoLoadDataJson)}' > /tmp/sftpgo-loaddata.json && sftpgo serve`,
+            ],
             environment: {
                 SFTPGO_DATA_PROVIDER__DRIVER: 'postgresql',
                 SFTPGO_DATA_PROVIDER__NAME: databaseName,
                 SFTPGO_DATA_PROVIDER__HOST: databaseCluster.clusterEndpoint.hostname,
                 SFTPGO_DATA_PROVIDER__PORT: databaseCluster.clusterEndpoint.port.toString(),
                 SFTPGO_DATA_PROVIDER__CREATE_DEFAULT_ADMIN: 'true',
+                SFTPGO_LOADDATA_FROM: '/tmp/sftpgo-loaddata.json',
+                SFTPGO_LOADDATA_CLEAN: '0',
             },
             secrets: {
                 SFTPGO_DATA_PROVIDER__USERNAME: ecs.Secret.fromSecretsManager(
@@ -171,9 +217,9 @@ export class SftpServerStack extends BitternBaseStack {
 
         const httpListener = networkLoadBalancer.addListener(
             'sftp-server-stack-network-load-balancer-http-listener', {
-            port: 8080,
-            protocol: elbv2.Protocol.TCP,
-        });
+                port: 8080,
+                protocol: elbv2.Protocol.TCP,
+            });
         httpListener.addTargets('sftp-server-stack-network-load-balancer-http-target', {
             port: 8080,
             protocol: elbv2.Protocol.TCP,

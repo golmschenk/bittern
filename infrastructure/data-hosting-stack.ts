@@ -12,10 +12,14 @@ export class DataHostingStack extends BitternBaseStack {
 
     constructor(scope: Construct, id: string, props: DataHostingStackProps) {
         super(scope, id, props);
-
         this.bucket = new s3.Bucket(this, `${props.dataName}-bucket`, {
             bucketName: `${props.dataName}`,
             blockPublicAccess: s3.BlockPublicAccess.BLOCK_ACLS_ONLY,
+        });
+
+        const cfnBucket = this.bucket.node.defaultChild as s3.CfnBucket;
+        cfnBucket.addPropertyOverride('RequestPaymentConfiguration', {
+            Payer: 'Requester',
         });
 
         this.bucket.addToResourcePolicy(new iam.PolicyStatement({
