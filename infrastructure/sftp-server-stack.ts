@@ -5,7 +5,6 @@ import * as elbv2 from 'aws-cdk-lib/aws-elasticloadbalancingv2';
 import * as rds from 'aws-cdk-lib/aws-rds';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import {Construct} from 'constructs';
-import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
 import {BitternBaseStack, BitternBaseStackProps} from './bittern-base-stack';
 import {allUsers} from './ssh-users';
 
@@ -104,16 +103,6 @@ export class SftpServerStack extends BitternBaseStack {
             })),
         };
 
-        const sftpgoDefaultAdminSecret = new secretsmanager.Secret(this, 'SftpGoAdminSecret', {
-            secretName: 'sftp-server/administrator-credentials',
-            generateSecretString: {
-                secretStringTemplate: JSON.stringify({username: 'administrator'}),
-                generateStringKey: 'password',
-                excludePunctuation: true,
-            },
-        });
-        sftpgoDefaultAdminSecret.grantRead(taskDefinition.taskRole);
-
         databaseCluster.secret!.grantRead(taskDefinition.taskRole);
 
         const container = taskDefinition.addContainer('sftp-server-stack-fargate-task', {
@@ -127,9 +116,7 @@ export class SftpServerStack extends BitternBaseStack {
                 SFTPGO_DATA_PROVIDER__NAME: databaseName,
                 SFTPGO_DATA_PROVIDER__HOST: databaseCluster.clusterEndpoint.hostname,
                 SFTPGO_DATA_PROVIDER__PORT: databaseCluster.clusterEndpoint.port.toString(),
-                SFTPGO_DATA_PROVIDER__CREATE_DEFAULT_ADMIN: 'true',
                 SFTPGO_LOADDATA_FROM: '/tmp/sftpgo-loaddata.json',
-                SFTPGO_LOADDATA_CLEAN: '0',
             },
             secrets: {
                 SFTPGO_DATA_PROVIDER__USERNAME: ecs.Secret.fromSecretsManager(
@@ -138,18 +125,11 @@ export class SftpServerStack extends BitternBaseStack {
                 SFTPGO_DATA_PROVIDER__PASSWORD: ecs.Secret.fromSecretsManager(
                     databaseCluster.secret!, 'password',
                 ),
-                SFTPGO_DEFAULT_ADMIN_USERNAME: ecs.Secret.fromSecretsManager(
-                    sftpgoDefaultAdminSecret, 'username',
-                ),
-                SFTPGO_DEFAULT_ADMIN_PASSWORD: ecs.Secret.fromSecretsManager(
-                    sftpgoDefaultAdminSecret, 'password',
-                ),
             },
         });
 
         container.addPortMappings(
             {containerPort: 2022, protocol: ecs.Protocol.TCP},
-            {containerPort: 8080, protocol: ecs.Protocol.TCP},
         );
 
         const fargateSecurityGroup = new ec2.SecurityGroup(
@@ -201,25 +181,8 @@ export class SftpServerStack extends BitternBaseStack {
             protocol: elbv2.Protocol.TCP,
             targets: [fargateService],
             healthCheck: {
-                port: '8080',
-                protocol: elbv2.Protocol.HTTP,
-                path: '/healthz',
-            },
-        });
-
-        const httpListener = networkLoadBalancer.addListener(
-            'sftp-server-stack-network-load-balancer-http-listener', {
-                port: 8080,
+                port: '2022',
                 protocol: elbv2.Protocol.TCP,
-            });
-        httpListener.addTargets('sftp-server-stack-network-load-balancer-http-target', {
-            port: 8080,
-            protocol: elbv2.Protocol.TCP,
-            targets: [fargateService],
-            healthCheck: {
-                port: '8080',
-                protocol: elbv2.Protocol.HTTP,
-                path: '/healthz',
             },
         });
 
@@ -227,11 +190,6 @@ export class SftpServerStack extends BitternBaseStack {
             ec2.Peer.anyIpv4(),
             ec2.Port.tcp(2022),
             'sftp-server-stack-inbound-sftp-traffic-rule',
-        );
-        fargateSecurityGroup.addIngressRule(
-            ec2.Peer.anyIpv4(),
-            ec2.Port.tcp(8080),
-            'sftp-server-stack-inbound-http-traffic-rule',
         );
     }
 }
