@@ -1,12 +1,12 @@
 import * as cdk from 'aws-cdk-lib';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as ecs from 'aws-cdk-lib/aws-ecs';
-import * as elbv2 from 'aws-cdk-lib/aws-elasticloadbalancingv2';
+import * as elb from 'aws-cdk-lib/aws-elasticloadbalancingv2';
 import * as rds from 'aws-cdk-lib/aws-rds';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import {Construct} from 'constructs';
 import {BitternBaseStack, BitternBaseStackProps} from './bittern-base-stack';
-import {allUsers} from './ssh-users';
+import {userToPublicSshKeyRecord} from './ssh-users';
 
 interface SftpServerStackProps extends BitternBaseStackProps {
     userBucketAccessMapping: {username: string; buckets: s3.Bucket[]}[];
@@ -95,7 +95,7 @@ export class SftpServerStack extends BitternBaseStack {
                     ['/', ['list']],
                     ...buckets.map((bucket) => [`/${bucket.bucketName}`, ['*']]),
                 ]),
-                public_keys: [allUsers[username]],
+                public_keys: [userToPublicSshKeyRecord[username]],
                 virtual_folders: buckets.map((bucket) => ({
                     name: bucket.bucketName,
                     virtual_path: `/${bucket.bucketName}`,
@@ -156,7 +156,7 @@ export class SftpServerStack extends BitternBaseStack {
         const elasticIp0 = new ec2.CfnEIP(this, 'sftp-server-stack-elastic-ip0');
         const elasticIp1 = new ec2.CfnEIP(this, 'sftp-server-stack-elastic-ip1');
 
-        const networkLoadBalancer = new elbv2.NetworkLoadBalancer(this, 'sftp-server-stack-network-load-balancer', {
+        const networkLoadBalancer = new elb.NetworkLoadBalancer(this, 'sftp-server-stack-network-load-balancer', {
             vpc,
             internetFacing: true,
             crossZoneEnabled: true,
@@ -164,7 +164,7 @@ export class SftpServerStack extends BitternBaseStack {
 
         const publicSubnets = vpc.selectSubnets({subnetType: ec2.SubnetType.PUBLIC}).subnets;
         const elasticIps = [elasticIp0, elasticIp1];
-        const cfnNlb = networkLoadBalancer.node.defaultChild as elbv2.CfnLoadBalancer;
+        const cfnNlb = networkLoadBalancer.node.defaultChild as elb.CfnLoadBalancer;
         cfnNlb.addPropertyDeletionOverride('Subnets');
         cfnNlb.subnetMappings = publicSubnets.map((subnet, index) => ({
             subnetId: subnet.subnetId,
@@ -174,15 +174,15 @@ export class SftpServerStack extends BitternBaseStack {
         const networkLoadBalancerListener = networkLoadBalancer.addListener(
             'sftp-server-stack-network-load-balancer-sftp-listener', {
                 port: 2022,
-                protocol: elbv2.Protocol.TCP,
+                protocol: elb.Protocol.TCP,
             });
         networkLoadBalancerListener.addTargets('sftp-server-stack-network-load-balancer-sftp-target', {
             port: 2022,
-            protocol: elbv2.Protocol.TCP,
+            protocol: elb.Protocol.TCP,
             targets: [fargateService],
             healthCheck: {
                 port: '2022',
-                protocol: elbv2.Protocol.TCP,
+                protocol: elb.Protocol.TCP,
             },
         });
 
