@@ -15,22 +15,22 @@ export class ContainerStack extends cdk.Stack {
     constructor(scope: Construct, id: string, props?: cdk.StackProps) {
         super(scope, id, props);
 
-        const inputBucket = new s3.Bucket(this, 'input-bucket-container-step-function-example', {
+        const inputBucket = new s3.Bucket(this, 'InputBucketContainerStepFunctionExample', {
             blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
         });
 
-        const outputBucket = new s3.Bucket(this, 'output-bucket-container-step-function-example', {
+        const outputBucket = new s3.Bucket(this, 'OutputBucketContainerStepFunctionExample', {
             blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
         });
 
-        const vpc = new ec2.Vpc(this, 'vpc', {
+        const vpc = new ec2.Vpc(this, 'Vpc', {
             maxAzs: 2,
             natGateways: 1,
         });
 
-        const cluster = new ecs.Cluster(this, 'ecs-cluster-container-step-function-example', {vpc});
+        const cluster = new ecs.Cluster(this, 'EcsClusterContainerStepFunctionExample', {vpc});
 
-        const asg = new autoscaling.AutoScalingGroup(this, 'ecs-asg', {
+        const asg = new autoscaling.AutoScalingGroup(this, 'EcsAsg', {
             vpc,
             instanceType: new ec2.InstanceType('t3.small'),
             machineImage: ecs.EcsOptimizedImage.amazonLinux2(),
@@ -44,23 +44,23 @@ export class ContainerStack extends cdk.Stack {
             iam.ManagedPolicy.fromAwsManagedPolicyName('service-role/AmazonEC2ContainerServiceforEC2Role'),
         );
 
-        const capacityProvider = new ecs.AsgCapacityProvider(this, 'ecs-asg-capacity-provider', {
+        const capacityProvider = new ecs.AsgCapacityProvider(this, 'EcsAsgCapacityProvider', {
             autoScalingGroup: asg,
             enableManagedScaling: true,
             targetCapacityPercent: 100,
         });
         cluster.addAsgCapacityProvider(capacityProvider);
 
-        const dlq = new sqs.Queue(this, 'jobs-dlq', {
+        const dlq = new sqs.Queue(this, 'JobsDlq', {
             retentionPeriod: cdk.Duration.days(14),
         });
 
-        const jobsQueue = new sqs.Queue(this, 'jobs-queue', {
+        const jobsQueue = new sqs.Queue(this, 'JobsQueue', {
             visibilityTimeout: cdk.Duration.minutes(5),
             deadLetterQueue: {queue: dlq, maxReceiveCount: 5},
         });
 
-        const taskDefinition = new ecs.Ec2TaskDefinition(this, 'ec2-task-definition');
+        const taskDefinition = new ecs.Ec2TaskDefinition(this, 'Ec2TaskDefinition');
 
         inputBucket.grantRead(taskDefinition.taskRole);
         outputBucket.grantReadWrite(taskDefinition.taskRole);
@@ -71,11 +71,11 @@ export class ContainerStack extends cdk.Stack {
 
         const containerRepository = ecr.Repository.fromRepositoryName(
             this,
-            'bittern-container-script-example-repo',
+            'BitternContainerScriptExampleRepo',
             'bittern',
         );
 
-        taskDefinition.addContainer('ecs-worker', {
+        taskDefinition.addContainer('EcsWorker', {
             image: ecs.ContainerImage.fromEcrRepository(containerRepository, 'latest'),
             logging: ecs.LogDrivers.awsLogs({streamPrefix: 'worker'}),
             memoryLimitMiB: 512,
@@ -88,7 +88,7 @@ export class ContainerStack extends cdk.Stack {
             },
         });
 
-        const service = new ecs.Ec2Service(this, 'worker-service', {
+        const service = new ecs.Ec2Service(this, 'WorkerService', {
             cluster,
             taskDefinition,
             desiredCount: 0,
@@ -106,7 +106,7 @@ export class ContainerStack extends cdk.Stack {
             maxCapacity: 50,
         });
 
-        scaling.scaleOnMetric('scale-on-queue-depth', {
+        scaling.scaleOnMetric('ScaleOnQueueDepth', {
             metric: jobsQueue.metricApproximateNumberOfMessagesVisible(),
             scalingSteps: [
                 {upper: 0, change: 0},
@@ -118,7 +118,7 @@ export class ContainerStack extends cdk.Stack {
             cooldown: cdk.Duration.seconds(60),
         });
 
-        const triggerRule = new events.Rule(this, 'trigger-rule', {
+        const triggerRule = new events.Rule(this, 'TriggerRule', {
             eventPattern: {
                 source: ['com.olmschenk.bittern'],
                 detailType: ['input_event'],

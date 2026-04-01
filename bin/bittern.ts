@@ -7,21 +7,21 @@ import {SftpServerStack} from "../infrastructure/sftp-server-stack";
 
 const app = new cdk.App();
 
-new LambdaFunctionStack(app, 'lambda-function-stack', {
+new LambdaFunctionStack(app, 'LambdaFunctionStack', {
     env: {account: process.env.CDK_DEFAULT_ACCOUNT, region: process.env.CDK_DEFAULT_REGION},
 });
 
-new ContainerStack(app, 'container-stack', {
+new ContainerStack(app, 'ContainerStack', {
     env: {account: process.env.CDK_DEFAULT_ACCOUNT, region: process.env.CDK_DEFAULT_REGION},
 });
 
-const variableStarDatasetDataHostingStack = new DataHostingStack(app, 'variable-star-dataset-data-hosting-stack', {
+const variableStarDatasetDataHostingStack = new DataHostingStack(app, 'VariableStarDatasetDataHostingStack', {
     env: {account: process.env.CDK_DEFAULT_ACCOUNT, region: process.env.CDK_DEFAULT_REGION},
     dataName: 'variable-star-dataset',
     tags: {'working-group': '6', 'deployment-environment': 'production'}
 });
 
-new SftpServerStack(app, 'sftp-server-stack', {
+new SftpServerStack(app, 'SftpServerStack', {
     env: {account: process.env.CDK_DEFAULT_ACCOUNT, region: process.env.CDK_DEFAULT_REGION},
     userBucketAccessMapping: [
         {username: 'golmschenk', buckets: [variableStarDatasetDataHostingStack.bucket]},

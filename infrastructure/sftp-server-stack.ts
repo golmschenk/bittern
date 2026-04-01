@@ -16,7 +16,7 @@ export class SftpServerStack extends BitternBaseStack {
     constructor(scope: Construct, id: string, props: SftpServerStackProps) {
         super(scope, id, props);
 
-        const vpc = new ec2.Vpc(this, 'sftp-server-stack-vpc', {
+        const vpc = new ec2.Vpc(this, 'SftpServerStackVpc', {
             maxAzs: 2,
             natGateways: 0,
             subnetConfiguration: [
@@ -31,16 +31,16 @@ export class SftpServerStack extends BitternBaseStack {
             ],
         });
 
-        vpc.addGatewayEndpoint('sftp-server-stack-s3-gateway-endpoint', {
+        vpc.addGatewayEndpoint('SftpServerStackS3GatewayEndpoint', {
             service: ec2.GatewayVpcEndpointAwsService.S3,
         });
 
-        const databaseSecurityGroup = new ec2.SecurityGroup(this, 'sftp-server-stack-database-security-group', {
+        const databaseSecurityGroup = new ec2.SecurityGroup(this, 'SftpServerStackDatabaseSecurityGroup', {
             vpc,
         });
 
         const databaseName = 'sftp_server';
-        const databaseCluster = new rds.DatabaseCluster(this, 'sftp-server-stack-database', {
+        const databaseCluster = new rds.DatabaseCluster(this, 'SftpServerStackDatabase', {
             engine: rds.DatabaseClusterEngine.auroraPostgres({
                 version: rds.AuroraPostgresEngineVersion.VER_16_4,
             }),
@@ -50,15 +50,15 @@ export class SftpServerStack extends BitternBaseStack {
             }),
             serverlessV2MinCapacity: 0.5,
             serverlessV2MaxCapacity: 4,
-            writer: rds.ClusterInstance.serverlessV2('sftp-server-stack-database-writer'),
+            writer: rds.ClusterInstance.serverlessV2('SftpServerStackDatabaseWriter'),
             vpc,
             vpcSubnets: {subnetType: ec2.SubnetType.PRIVATE_ISOLATED},
             securityGroups: [databaseSecurityGroup],
         });
 
-        const cluster = new ecs.Cluster(this, 'sftp-server-stack-fargate-cluster', {vpc});
+        const cluster = new ecs.Cluster(this, 'SftpServerStackFargateCluster', {vpc});
 
-        const taskDefinition = new ecs.FargateTaskDefinition(this, 'sftp-server-stack-fargate-task-definition',
+        const taskDefinition = new ecs.FargateTaskDefinition(this, 'SftpServerStackFargateTaskDefinition',
             {
                 memoryLimitMiB: 512,
                 cpu: 256,
@@ -105,7 +105,7 @@ export class SftpServerStack extends BitternBaseStack {
 
         databaseCluster.secret!.grantRead(taskDefinition.taskRole);
 
-        const container = taskDefinition.addContainer('sftp-server-stack-fargate-task', {
+        const container = taskDefinition.addContainer('SftpServerStackFargateTask', {
             image: ecs.ContainerImage.fromRegistry('drakkan/sftpgo:v2.7-alpine'),
             command: [
                 'sh', '-c',
@@ -133,7 +133,7 @@ export class SftpServerStack extends BitternBaseStack {
         );
 
         const fargateSecurityGroup = new ec2.SecurityGroup(
-            this, 'sftp-server-stack-security-group', {
+            this, 'SftpServerStackSecurityGroup', {
                 vpc,
             });
 
@@ -143,7 +143,7 @@ export class SftpServerStack extends BitternBaseStack {
             'sftp-server-stack-fargate-to-database-rule',
         );
 
-        const fargateService = new ecs.FargateService(this, 'sftp-server-stack-fargate-service', {
+        const fargateService = new ecs.FargateService(this, 'SftpServerStackFargateService', {
             cluster,
             taskDefinition,
             desiredCount: 1,
@@ -153,10 +153,10 @@ export class SftpServerStack extends BitternBaseStack {
             securityGroups: [fargateSecurityGroup],
         });
 
-        const elasticIp0 = new ec2.CfnEIP(this, 'sftp-server-stack-elastic-ip0');
-        const elasticIp1 = new ec2.CfnEIP(this, 'sftp-server-stack-elastic-ip1');
+        const elasticIp0 = new ec2.CfnEIP(this, 'SftpServerStackElasticIp0');
+        const elasticIp1 = new ec2.CfnEIP(this, 'SftpServerStackElasticIp1');
 
-        const networkLoadBalancer = new elb.NetworkLoadBalancer(this, 'sftp-server-stack-network-load-balancer', {
+        const networkLoadBalancer = new elb.NetworkLoadBalancer(this, 'SftpServerStackNetworkLoadBalancer', {
             vpc,
             internetFacing: true,
             crossZoneEnabled: true,
@@ -172,11 +172,11 @@ export class SftpServerStack extends BitternBaseStack {
         }));
 
         const networkLoadBalancerListener = networkLoadBalancer.addListener(
-            'sftp-server-stack-network-load-balancer-sftp-listener', {
+            'SftpServerStackNetworkLoadBalancerSftpListener', {
                 port: 2022,
                 protocol: elb.Protocol.TCP,
             });
-        networkLoadBalancerListener.addTargets('sftp-server-stack-network-load-balancer-sftp-target', {
+        networkLoadBalancerListener.addTargets('SftpServerStackNetworkLoadBalancerSftpTarget', {
             port: 2022,
             protocol: elb.Protocol.TCP,
             targets: [fargateService],

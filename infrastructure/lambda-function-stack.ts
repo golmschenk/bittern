@@ -9,10 +9,10 @@ export class LambdaFunctionStack extends cdk.Stack {
     constructor(scope: Construct, id: string, props?: cdk.StackProps) {
         super(scope, id, props);
 
-        const inputBucket = new s3.Bucket(this, 'input-bucket')
-        const outputBucket = new s3.Bucket(this, 'output-bucket')
+        const inputBucket = new s3.Bucket(this, 'InputBucket')
+        const outputBucket = new s3.Bucket(this, 'OutputBucket')
 
-        const lambdaFunction = new lambda.Function(this, 'example-lambda-function', {
+        const lambdaFunction = new lambda.Function(this, 'ExampleLambdaFunction', {
             runtime: lambda.Runtime.PYTHON_3_13,
             handler: 'lambda_function_example.sum_values_in_file',
             code: lambda.Code.fromAsset(path.join(__dirname, '..', 'src')),
