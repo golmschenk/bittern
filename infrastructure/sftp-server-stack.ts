@@ -36,6 +36,26 @@ export class SftpServerStack extends BitternBaseStack {
             service: ec2.GatewayVpcEndpointAwsService.S3,
         });
 
+        vpc.addInterfaceEndpoint('SecretsManagerEndpoint', {
+            service: ec2.InterfaceVpcEndpointAwsService.SECRETS_MANAGER,
+            subnets: { subnetType: ec2.SubnetType.PUBLIC },
+        });
+
+        vpc.addInterfaceEndpoint('CloudWatchLogsEndpoint', {
+            service: ec2.InterfaceVpcEndpointAwsService.CLOUDWATCH_LOGS,
+            subnets: { subnetType: ec2.SubnetType.PUBLIC },
+        });
+
+        vpc.addInterfaceEndpoint('EcrDockerEndpoint', {
+            service: ec2.InterfaceVpcEndpointAwsService.ECR_DOCKER,
+            subnets: { subnetType: ec2.SubnetType.PUBLIC },
+        });
+
+        vpc.addInterfaceEndpoint('EcrApiEndpoint', {
+            service: ec2.InterfaceVpcEndpointAwsService.ECR,
+            subnets: { subnetType: ec2.SubnetType.PUBLIC },
+        });
+
         const databaseSecurityGroup = new ec2.SecurityGroup(this, 'SftpServerStackDatabaseSecurityGroup', {
             vpc,
         });
@@ -47,7 +67,7 @@ export class SftpServerStack extends BitternBaseStack {
             }),
             defaultDatabaseName: databaseName,
             credentials: rds.Credentials.fromGeneratedSecret('sftpgo', {
-                secretName: 'sftp-server/database-credentials',
+                secretName: 'sftp-server0/database-credentials',
             }),
             serverlessV2MinCapacity: 0.5,
             serverlessV2MaxCapacity: 4,
@@ -112,6 +132,7 @@ export class SftpServerStack extends BitternBaseStack {
                 'sh', '-c',
                 `echo '${JSON.stringify(sftpgoLoadDataJson)}' > /tmp/sftpgo-loaddata.json && sftpgo serve`,
             ],
+            logging: ecs.LogDrivers.awsLogs({ streamPrefix: 'SftpServerStackFargateTask' }),
             environment: {
                 SFTPGO_DATA_PROVIDER__DRIVER: 'postgresql',
                 SFTPGO_DATA_PROVIDER__NAME: databaseName,
@@ -153,6 +174,7 @@ export class SftpServerStack extends BitternBaseStack {
             vpcSubnets: {subnetType: ec2.SubnetType.PUBLIC},
             securityGroups: [fargateSecurityGroup],
         });
+        fargateService.node.addDependency(databaseCluster);
 
         const elasticIp0 = new ec2.CfnEIP(this, 'SftpServerStackElasticIp0');
         const elasticIp1 = new ec2.CfnEIP(this, 'SftpServerStackElasticIp1');
@@ -192,5 +214,8 @@ export class SftpServerStack extends BitternBaseStack {
             ec2.Port.tcp(2022),
             'SftpServerStackInboundSftpTrafficRule',
         );
+
+        networkLoadBalancer.connections.allowTo(
+            fargateService, ec2.Port.tcp(2022), 'NLB to Fargate health check and traffic');
     }
 }
