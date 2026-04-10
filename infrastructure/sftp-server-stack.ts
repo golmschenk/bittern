@@ -196,7 +196,7 @@ export class SftpServerStack extends BitternBaseStack {
 
         const networkLoadBalancerListener = networkLoadBalancer.addListener(
             'SftpServerStackNetworkLoadBalancerSftpListener', {
-                port: 2022,
+                port: 22,
                 protocol: elb.Protocol.TCP,
             });
         networkLoadBalancerListener.addTargets('SftpServerStackNetworkLoadBalancerSftpTarget', {
@@ -217,5 +217,6 @@ export class SftpServerStack extends BitternBaseStack {
 
         networkLoadBalancer.connections.allowTo(
             fargateService, ec2.Port.tcp(2022), 'NLB to Fargate health check and traffic');
+        networkLoadBalancer.connections.allowFromAnyIpv4(ec2.Port.tcp(22), 'Allow inbound SFTP traffic');
     }
 }
