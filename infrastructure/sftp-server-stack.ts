@@ -138,7 +138,7 @@ export class SftpServerStack extends BitternBaseStack {
                 SFTPGO_DATA_PROVIDER__HOST: databaseCluster.clusterEndpoint.hostname,
                 SFTPGO_DATA_PROVIDER__PORT: databaseCluster.clusterEndpoint.port.toString(),
                 SFTPGO_LOADDATA_FROM: '/tmp/sftpgo-loaddata.json',
-                SFTPGO_LOADDATA_MODE: '1',
+                SFTPGO_LOADDATA_MODE: '0',
             },
             secrets: {
                 SFTPGO_DATA_PROVIDER__USERNAME: ecs.Secret.fromSecretsManager(
