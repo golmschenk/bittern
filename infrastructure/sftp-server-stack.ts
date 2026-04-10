@@ -4,7 +4,6 @@ import * as ecs from 'aws-cdk-lib/aws-ecs';
 import * as elb from 'aws-cdk-lib/aws-elasticloadbalancingv2';
 import * as rds from 'aws-cdk-lib/aws-rds';
 import * as s3 from 'aws-cdk-lib/aws-s3';
-import * as changeCase from 'change-case';
 import {Construct} from 'constructs';
 import {BitternBaseStack, BitternBaseStackProps} from './bittern-base-stack';
 import {userToPublicSshKeyRecord} from './ssh-users';
@@ -114,12 +113,12 @@ export class SftpServerStack extends BitternBaseStack {
                 home_dir: `/tmp/users/${username}`,
                 permissions: Object.fromEntries([
                     ['/', ['list']],
-                    ...buckets.map((bucket) => [`/${changeCase.snakeCase(bucket.bucketName)}`, ['*']]),
+                    ...buckets.map((bucket) => [`/${bucket.bucketName}`, ['*']]),
                 ]),
                 public_keys: [userToPublicSshKeyRecord[username]],
                 virtual_folders: buckets.map((bucket) => ({
                     name: bucket.bucketName,
-                    virtual_path: `/${changeCase.snakeCase(bucket.bucketName)}`,
+                    virtual_path: `/${bucket.bucketName}`,
                 })),
             })),
         };
@@ -139,6 +138,7 @@ export class SftpServerStack extends BitternBaseStack {
                 SFTPGO_DATA_PROVIDER__HOST: databaseCluster.clusterEndpoint.hostname,
                 SFTPGO_DATA_PROVIDER__PORT: databaseCluster.clusterEndpoint.port.toString(),
                 SFTPGO_LOADDATA_FROM: '/tmp/sftpgo-loaddata.json',
+                SFTPGO_LOADDATA_MODE: '1',
             },
             secrets: {
                 SFTPGO_DATA_PROVIDER__USERNAME: ecs.Secret.fromSecretsManager(
