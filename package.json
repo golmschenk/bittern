@@ -22,6 +22,7 @@
   "dependencies": {
     "@aws-cdk/aws-lambda-python-alpha": "^2.236.0-alpha.0",
     "aws-cdk-lib": "^2.236.0",
+    "change-case": "^5.4.4",
     "constructs": "^10.0.0"
   }
 }
