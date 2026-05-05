@@ -34,7 +34,13 @@ new SftpServerStack(app, 'SftpServerStack', {
             username: 'golmschenk',
             buckets: [
                 variableStarDatasetDataHostingStack.bucket,
-                freeFloatingPlanetDataDataHostingStack.bucket
+                freeFloatingPlanetDataDataHostingStack.bucket,
+            ]
+        },
+        {
+            username: 'wderocco',
+            buckets: [
+                freeFloatingPlanetDataDataHostingStack.bucket,
             ]
         },
     ],
