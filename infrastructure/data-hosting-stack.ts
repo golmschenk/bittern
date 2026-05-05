@@ -35,11 +35,11 @@ export class DataHostingStack extends BitternBaseStack {
         });
 
         this.bucket.addToResourcePolicy(new iam.PolicyStatement({
-            sid: 'PublicReadGetObject',
+            sid: 'PublicReadAccess',
             effect: iam.Effect.ALLOW,
             principals: [new iam.AnyPrincipal()],
-            actions: ['s3:GetObject'],
-            resources: [`${this.bucket.bucketArn}/*`],
+            actions: ['s3:GetObject', 's3:ListBucket'],
+            resources: [this.bucket.bucketArn, `${this.bucket.bucketArn}/*`],
         }));
     }
 }

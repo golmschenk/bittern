@@ -21,10 +21,22 @@ const variableStarDatasetDataHostingStack = new DataHostingStack(app, 'VariableS
     tags: {'working-group': '6', 'deployment-environment': 'production'}
 });
 
+const freeFloatingPlanetDataDataHostingStack = new DataHostingStack(app, 'FreeFloatingPlanetDataDataHostingStack', {
+    env: {account: process.env.CDK_DEFAULT_ACCOUNT, region: process.env.CDK_DEFAULT_REGION},
+    dataName: 'free-floating-planet-data',
+    tags: {'working-group': '6', 'deployment-environment': 'production'}
+});
+
 new SftpServerStack(app, 'SftpServerStack', {
     env: {account: process.env.CDK_DEFAULT_ACCOUNT, region: process.env.CDK_DEFAULT_REGION},
     userBucketAccessMapping: [
-        {username: 'golmschenk', buckets: [variableStarDatasetDataHostingStack.bucket]},
+        {
+            username: 'golmschenk',
+            buckets: [
+                variableStarDatasetDataHostingStack.bucket,
+                freeFloatingPlanetDataDataHostingStack.bucket
+            ]
+        },
     ],
     tags: {'working-group': '14', 'deployment-environment': 'production'},
 });
