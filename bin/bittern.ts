@@ -18,6 +18,7 @@ new ContainerStack(app, 'ContainerStack', {
 const variableStarDatasetDataHostingStack = new DataHostingStack(app, 'VariableStarDatasetDataHostingStack', {
     env: {account: process.env.CDK_DEFAULT_ACCOUNT, region: process.env.CDK_DEFAULT_REGION},
     dataName: 'variable-star-dataset',
+    readerAccountIds: ['776845170306', '376129880223'],
     tags: {'working-group': '6', 'deployment-environment': 'production'}
 });
 
