@@ -13,7 +13,12 @@ keywords = []
 authors = [
   { name = "golmschenk", email = "greg@olmschenk.com" },
 ]
-dependencies = []
+dependencies = [
+  'furo',
+  'sphinx',
+  'myst-parser',
+  'sphinx-copybutton',
+]
 
 [project.urls]
 Documentation = "https://github.com/golmschenk/nena#readme"
