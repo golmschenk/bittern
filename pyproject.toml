@@ -1,0 +1,50 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "nena"
+dynamic = ["version"]
+description = ''
+readme = "README.md"
+requires-python = ">=3.13"
+license = "Apache-2.0"
+keywords = []
+authors = [
+  { name = "golmschenk", email = "greg@olmschenk.com" },
+]
+dependencies = []
+
+[project.urls]
+Documentation = "https://github.com/golmschenk/nena#readme"
+Issues = "https://github.com/golmschenk/nena/issues"
+Source = "https://github.com/golmschenk/nena"
+
+[tool.hatch.version]
+path = "src/nena/__about__.py"
+
+[tool.hatch.envs.types]
+extra-dependencies = [
+  "mypy>=1.0.0",
+]
+[tool.hatch.envs.types.scripts]
+check = "mypy --install-types --non-interactive {args:src/nena tests}"
+
+[tool.coverage.run]
+source_pkgs = ["nena", "tests"]
+branch = true
+parallel = true
+omit = [
+  "src/nena/__about__.py",
+]
+
+[tool.coverage.paths]
+nena = ["src/nena", "*/nena/src/nena"]
+tests = ["tests", "*/nena/tests"]
+
+[tool.coverage.report]
+exclude_lines = [
+  "no cov",
+  "if __name__ == .__main__.:",
+  "if TYPE_CHECKING:",
+]
