@@ -6,4 +6,5 @@
 :titlesonly:
 
 smce/index
+aws_pipeline/index
 ```
