@@ -2,14 +2,14 @@ import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as changeCase from 'change-case';
 import {Construct} from 'constructs';
-import {BitternBaseStack, BitternBaseStackProps} from './bittern-base-stack';
+import {NenaBaseStack, NenaBaseStackProps} from './nena-base-stack';
 
-interface DataHostingStackProps extends BitternBaseStackProps {
+interface DataHostingStackProps extends NenaBaseStackProps {
     dataName: string;
     readerAccountIds?: string[];
 }
 
-export class DataHostingStack extends BitternBaseStack {
+export class DataHostingStack extends NenaBaseStack {
     public readonly bucket: s3.Bucket;
     public readonly accessPoint?: s3.CfnAccessPoint;
 

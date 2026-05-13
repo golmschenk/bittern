@@ -5,14 +5,14 @@ import * as elb from 'aws-cdk-lib/aws-elasticloadbalancingv2';
 import * as rds from 'aws-cdk-lib/aws-rds';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import {Construct} from 'constructs';
-import {BitternBaseStack, BitternBaseStackProps} from './bittern-base-stack';
+import {NenaBaseStack, NenaBaseStackProps} from './nena-base-stack';
 import {userToPublicSshKeyRecord} from './ssh-users';
 
-interface SftpServerStackProps extends BitternBaseStackProps {
+interface SftpServerStackProps extends NenaBaseStackProps {
     userBucketAccessMapping: {username: string; buckets: s3.Bucket[]}[];
 }
 
-export class SftpServerStack extends BitternBaseStack {
+export class SftpServerStack extends NenaBaseStack {
     constructor(scope: Construct, id: string, props: SftpServerStackProps) {
         super(scope, id, props);
 

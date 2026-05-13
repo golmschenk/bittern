@@ -1,6 +1,6 @@
 // import * as cdk from 'aws-cdk-infrastructure/core';
 // import { Template } from 'aws-cdk-infrastructure/assertions';
-// import * as Bittern from '../infrastructure/bittern-stack';
+// import * as Bittern from '../infrastructure/nena-stack';
 
 // example test. To run these tests, uncomment this file along with the
 // example resource in infrastructure/lambda-function-stack.ts

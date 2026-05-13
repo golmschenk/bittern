@@ -12,7 +12,7 @@ events = boto3.client("events")
 INPUT_BUCKET = os.environ["INPUT_BUCKET"]
 OUTPUT_BUCKET = os.environ["OUTPUT_BUCKET"]
 QUEUE_URL = os.environ["QUEUE_URL"]
-OUTPUT_EVENT_SOURCE = os.environ.get("OUTPUT_EVENT_SOURCE", "bittern.container")
+OUTPUT_EVENT_SOURCE = os.environ.get("OUTPUT_EVENT_SOURCE", "nena.container")
 OUTPUT_EVENT_DETAIL_TYPE = os.environ.get("OUTPUT_EVENT_DETAIL_TYPE", "container.task.completed")
 
 

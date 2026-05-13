@@ -71,8 +71,8 @@ export class ContainerStack extends cdk.Stack {
 
         const containerRepository = ecr.Repository.fromRepositoryName(
             this,
-            'BitternContainerScriptExampleRepo',
-            'bittern',
+            'NenaContainerScriptExampleRepo',
+            'nena',
         );
 
         taskDefinition.addContainer('EcsWorker', {
@@ -83,7 +83,7 @@ export class ContainerStack extends cdk.Stack {
                 INPUT_BUCKET: inputBucket.bucketName,
                 OUTPUT_BUCKET: outputBucket.bucketName,
                 QUEUE_URL: jobsQueue.queueUrl,
-                OUTPUT_EVENT_SOURCE: 'bittern.container',
+                OUTPUT_EVENT_SOURCE: 'nena.container',
                 OUTPUT_EVENT_DETAIL_TYPE: 'container.task.completed',
             },
         });
@@ -120,7 +120,7 @@ export class ContainerStack extends cdk.Stack {
 
         const triggerRule = new events.Rule(this, 'TriggerRule', {
             eventPattern: {
-                source: ['com.olmschenk.bittern'],
+                source: ['com.olmschenk.nena'],
                 detailType: ['input_event'],
             },
         });
